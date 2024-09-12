@@ -2,6 +2,7 @@ package checkpoint
 
 import (
 	"bytes"
+	"math"
 	"strconv"
 	"time"
 
@@ -26,6 +27,10 @@ func NewHandler(k Keeper, contractCaller helper.IContractCaller) sdk.Handler {
 			return handleMsgCheckpointAck(ctx, msg, k, contractCaller)
 		case types.MsgCheckpointNoAck:
 			return handleMsgCheckpointNoAck(ctx, msg, k)
+		case types.MsgMilestone:
+			return handleMsgMilestone(ctx, msg, k)
+		case types.MsgMilestoneTimeout:
+			return handleMsgMilestoneTimeout(ctx, msg, k)
 		default:
 			return sdk.ErrTxDecode("Invalid message in checkpoint module").Result()
 		}
@@ -33,7 +38,7 @@ func NewHandler(k Keeper, contractCaller helper.IContractCaller) sdk.Handler {
 }
 
 // handleMsgCheckpointAdjust adjusts checkpoint
-func handleMsgCheckpointAdjust(ctx sdk.Context, msg types.MsgCheckpointAdjust, k Keeper, contractCaller helper.IContractCaller) sdk.Result {
+func handleMsgCheckpointAdjust(ctx sdk.Context, msg types.MsgCheckpointAdjust, k Keeper, _ helper.IContractCaller) sdk.Result {
 	logger := k.Logger(ctx)
 
 	checkpointBuffer, err := k.GetCheckpointFromBuffer(ctx)
@@ -71,7 +76,7 @@ func handleMsgCheckpointAdjust(ctx sdk.Context, msg types.MsgCheckpointAdjust, k
 }
 
 // handleMsgCheckpoint Validates checkpoint transaction
-func handleMsgCheckpoint(ctx sdk.Context, msg types.MsgCheckpoint, k Keeper, contractCaller helper.IContractCaller) sdk.Result {
+func handleMsgCheckpoint(ctx sdk.Context, msg types.MsgCheckpoint, k Keeper, _ helper.IContractCaller) sdk.Result {
 	logger := k.Logger(ctx)
 
 	timeStamp := uint64(ctx.BlockTime().Unix())
@@ -117,7 +122,7 @@ func handleMsgCheckpoint(ctx sdk.Context, msg types.MsgCheckpoint, k Keeper, con
 				"currentTip", lastCheckpoint.EndBlock,
 				"startBlock", msg.StartBlock)
 
-			return common.ErrDisCountinuousCheckpoint(k.Codespace()).Result()
+			return common.ErrDisContinuousCheckpoint(k.Codespace()).Result()
 		}
 	} else if err.Error() == common.ErrNoCheckpointFound(k.Codespace()).Error() && msg.StartBlock != 0 {
 		logger.Error("First checkpoint to start from block 0", "checkpoint start block", msg.StartBlock, "error", err)
@@ -193,7 +198,7 @@ func handleMsgCheckpoint(ctx sdk.Context, msg types.MsgCheckpoint, k Keeper, con
 }
 
 // handleMsgCheckpointAck Validates if checkpoint submitted on chain is valid
-func handleMsgCheckpointAck(ctx sdk.Context, msg types.MsgCheckpointAck, k Keeper, contractCaller helper.IContractCaller) sdk.Result {
+func handleMsgCheckpointAck(ctx sdk.Context, msg types.MsgCheckpointAck, k Keeper, _ helper.IContractCaller) sdk.Result {
 	logger := k.Logger(ctx)
 
 	// Get last checkpoint from buffer
@@ -216,7 +221,7 @@ func handleMsgCheckpointAck(ctx sdk.Context, msg types.MsgCheckpointAck, k Keepe
 			"endExpected", headerBlock.EndBlock,
 			"endReceived", msg.StartBlock,
 			"rootExpected", headerBlock.RootHash.String(),
-			"rootRecieved", msg.RootHash.String(),
+			"rootReceived", msg.RootHash.String(),
 		)
 
 		return common.ErrBadAck(k.Codespace()).Result()
@@ -257,6 +262,33 @@ func handleMsgCheckpointNoAck(ctx sdk.Context, msg types.MsgCheckpointNoAck, k K
 		)
 
 		return common.ErrInvalidNoACK(k.Codespace()).Result()
+	}
+
+	//Hardfork to check the validity of the NoAckProposer
+	if ctx.BlockHeight() >= helper.GetAalborgHardForkHeight() {
+		timeDiff := currentTime.Sub(lastCheckpointTime)
+
+		//count value is calculated based on the time passed since the last checkpoint
+		count := math.Floor(timeDiff.Seconds() / bufferTime.Seconds())
+
+		var isProposer bool = false
+
+		currentValidatorSet := k.sk.GetValidatorSet(ctx)
+		currentValidatorSet.IncrementProposerPriority(1)
+
+		for i := 0; i < int(count); i++ {
+			if currentValidatorSet.Proposer.Signer == msg.From {
+				isProposer = true
+				break
+			}
+
+			currentValidatorSet.IncrementProposerPriority(1)
+		}
+
+		//If NoAck sender is not the valid proposer, return error
+		if !isProposer {
+			return common.ErrInvalidNoACKProposer(k.Codespace()).Result()
+		}
 	}
 
 	// Check last no ack - prevents repetitive no-ack

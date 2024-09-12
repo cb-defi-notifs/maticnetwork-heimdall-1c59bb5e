@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/go-kit/kit/log"
+	"github.com/go-kit/log"
 	"github.com/gorilla/mux"
 	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cobra"
@@ -67,7 +67,7 @@ func StartRestServer(mainCtx ctx.Context, cdc *codec.Codec, registerRoutesFn fun
 	// and returns with the details we use to proxy orders to that socket
 	listener, err := rpcserver.Listen(listenAddr, cfg)
 	if err != nil {
-		logger.Error("RPC could not listen: %v", err)
+		logger.Error("RPC could not listen: %v ", err)
 		return err
 	}
 	// no err? -> signal here that server is open for business
@@ -210,6 +210,7 @@ func startRPCServer(shutdownCtx ctx.Context, listener net.Listener, handler http
 		ctx, cancel := ctx.WithTimeout(ctx.Background(), shutdownTimeout)
 		defer cancel()
 
+		// nolint: contextcheck
 		return s.Shutdown(ctx)
 	})
 

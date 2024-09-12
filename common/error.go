@@ -18,20 +18,21 @@ const (
 	CodeInvalidMsg CodeType = 1400
 	CodeOldTx      CodeType = 1401
 
-	CodeInvalidProposerInput     CodeType = 1500
-	CodeInvalidBlockInput        CodeType = 1501
-	CodeInvalidACK               CodeType = 1502
-	CodeNoACK                    CodeType = 1503
-	CodeBadTimeStamp             CodeType = 1504
-	CodeInvalidNoACK             CodeType = 1505
-	CodeTooManyNoAck             CodeType = 1506
-	CodeLowBal                   CodeType = 1507
-	CodeNoCheckpoint             CodeType = 1508
-	CodeOldCheckpoint            CodeType = 1509
-	CodeDisCountinuousCheckpoint CodeType = 1510
-	CodeNoCheckpointBuffer       CodeType = 1511
-	CodeCheckpointBuffer         CodeType = 1512
-	CodeCheckpointAlreadyExists  CodeType = 1513
+	CodeInvalidProposerInput    CodeType = 1500
+	CodeInvalidBlockInput       CodeType = 1501
+	CodeInvalidACK              CodeType = 1502
+	CodeNoACK                   CodeType = 1503
+	CodeBadTimeStamp            CodeType = 1504
+	CodeInvalidNoACK            CodeType = 1505
+	CodeTooManyNoAck            CodeType = 1506
+	CodeLowBal                  CodeType = 1507
+	CodeNoCheckpoint            CodeType = 1508
+	CodeOldCheckpoint           CodeType = 1509
+	CodeDisContinuousCheckpoint CodeType = 1510
+	CodeNoCheckpointBuffer      CodeType = 1511
+	CodeCheckpointBuffer        CodeType = 1512
+	CodeCheckpointAlreadyExists CodeType = 1513
+	CodeInvalidNoAckProposer    CodeType = 1505
 
 	CodeOldValidator        CodeType = 2500
 	CodeNoValidator         CodeType = 2501
@@ -49,7 +50,7 @@ const (
 	CodeNoSignerChangeError CodeType = 2513
 	CodeNonce               CodeType = 2514
 
-	CodeSpanNotCountinuous  CodeType = 3501
+	CodeSpanNotContinuous   CodeType = 3501
 	CodeUnableToFreezeSet   CodeType = 3502
 	CodeSpanNotFound        CodeType = 3503
 	CodeValSetMisMatch      CodeType = 3504
@@ -73,6 +74,15 @@ const (
 	CodeSlashInfoDetails       CodeType = 6503
 	CodeTickNotInContinuity    CodeType = 6504
 	CodeTickAckNotInContinuity CodeType = 6505
+
+	CodeNoMilestone              CodeType = 7501
+	CodeMilestoneNotInContinuity CodeType = 7502
+	CodeMilestoneInvalid         CodeType = 7503
+	CodeOldMilestone             CodeType = 7504
+	CodeInvalidMilestoneTimeout  CodeType = 7505
+	CodeTooManyMilestoneTimeout  CodeType = 7506
+	CodeInvalidMilestoneIndex    CodeType = 7507
+	CodePrevMilestoneInVoting    CodeType = 7508
 )
 
 // -------- Invalid msg
@@ -111,8 +121,8 @@ func ErrOldCheckpoint(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeOldCheckpoint, "Checkpoint already received for given start and end block")
 }
 
-func ErrDisCountinuousCheckpoint(codespace sdk.CodespaceType) sdk.Error {
-	return newError(codespace, CodeDisCountinuousCheckpoint, "Checkpoint not in continuity")
+func ErrDisContinuousCheckpoint(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeDisContinuousCheckpoint, "Checkpoint not in continuity")
 }
 
 func ErrNoACK(codespace sdk.CodespaceType, expiresAt uint64) sdk.Error {
@@ -143,12 +153,49 @@ func ErrInvalidNoACK(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeInvalidNoACK, "Invalid No ACK -- Waiting for last checkpoint ACK")
 }
 
+func ErrInvalidNoACKProposer(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeInvalidNoAckProposer, "Invalid No ACK Proposer")
+}
+
 func ErrTooManyNoACK(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeTooManyNoAck, "Too many no-acks")
 }
 
 func ErrBadTimeStamp(codespace sdk.CodespaceType) sdk.Error {
 	return newError(codespace, CodeBadTimeStamp, "Invalid time stamp. It must be in near past.")
+}
+
+// -----------Milestone Errors
+func ErrNoMilestoneFound(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeNoMilestone, "Milestone Not Found")
+}
+
+func ErrMilestoneNotInContinuity(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeMilestoneNotInContinuity, "Milestone not in continuity")
+}
+
+func ErrMilestoneInvalid(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeMilestoneInvalid, "Milestone Msg Invalid")
+}
+
+func ErrOldMilestone(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeOldMilestone, "Milestone already exists")
+}
+
+func ErrInvalidMilestoneTimeout(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeInvalidMilestoneTimeout, "Invalid Milestone Timeout msg ")
+}
+
+func ErrTooManyMilestoneTimeout(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeTooManyNoAck, "Too many milestone timeout msg")
+}
+
+func ErrInvalidMilestoneIndex(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodeNoMilestone, "Invalid milestone index")
+}
+
+func ErrPrevMilestoneInVoting(codespace sdk.CodespaceType) sdk.Error {
+	return newError(codespace, CodePrevMilestoneInVoting, "Previous milestone still in voting phase")
 }
 
 // ----------- Staking Errors
@@ -216,7 +263,7 @@ func ErrInvalidBorChainID(codespace sdk.CodespaceType) sdk.Error {
 }
 
 func ErrSpanNotInContinuity(codespace sdk.CodespaceType) sdk.Error {
-	return newError(codespace, CodeSpanNotCountinuous, "Span not countinuous")
+	return newError(codespace, CodeSpanNotContinuous, "Span not continuous")
 }
 
 func ErrInvalidSpanDuration(codespace sdk.CodespaceType) sdk.Error {
@@ -286,7 +333,7 @@ func CodeToDefaultMsg(code CodeType) string {
 		return "Checkpoint Not Found"
 	case CodeOldCheckpoint:
 		return "Checkpoint already received for given start and end block"
-	case CodeDisCountinuousCheckpoint:
+	case CodeDisContinuousCheckpoint:
 		return "Checkpoint not in continuity"
 	case CodeNoCheckpointBuffer:
 		return "Checkpoint buffer Not Found"
@@ -314,8 +361,8 @@ func CodeToDefaultMsg(code CodeType) string {
 		return "wait for confirmation time before sending transaction"
 	case CodeValPubkeyMismatch:
 		return "Signer Pubkey mismatch between event and msg"
-	case CodeSpanNotCountinuous:
-		return "Span not countinuous"
+	case CodeSpanNotContinuous:
+		return "Span not continuous"
 	case CodeUnableToFreezeSet:
 		return "Unable to freeze validator set for next span"
 	case CodeSpanNotFound:

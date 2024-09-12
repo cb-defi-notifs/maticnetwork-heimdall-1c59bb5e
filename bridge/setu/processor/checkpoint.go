@@ -625,20 +625,20 @@ func (cp *CheckpointProcessor) checkIfNoAckIsRequired(checkpointContext *Checkpo
 		index = 1
 	}
 
+	// checkpoint params
+	checkpointParams := checkpointContext.CheckpointParams
+
 	checkpointCreationTime := time.Unix(lastCreatedAt, 0)
 	currentTime := time.Now().UTC()
 	timeDiff := currentTime.Sub(checkpointCreationTime)
 	// check if last checkpoint was < NoACK wait time
-	if timeDiff.Seconds() >= helper.GetConfig().NoACKWaitTime.Seconds() && index == 0 {
-		index = math.Floor(timeDiff.Seconds() / helper.GetConfig().NoACKWaitTime.Seconds())
+	if timeDiff.Seconds() >= checkpointParams.CheckpointBufferTime.Seconds() && index == 0 {
+		index = math.Floor(timeDiff.Seconds() / checkpointParams.CheckpointBufferTime.Seconds())
 	}
 
 	if index == 0 {
 		return false, uint64(index)
 	}
-
-	// checkpoint params
-	checkpointParams := checkpointContext.CheckpointParams
 
 	// check if difference between no-ack time and current time
 	lastNoAck := cp.getLastNoAckTime()
@@ -692,16 +692,16 @@ func (cp *CheckpointProcessor) shouldSendCheckpoint(checkpointContext *Checkpoin
 
 	shouldSend := false
 	// validate if checkpoint needs to be pushed to rootchain and submit
-	cp.Logger.Info("Validating if checkpoint needs to be pushed", "commitedLastBlock", currentChildBlock, "startBlock", start)
+	cp.Logger.Info("Validating if checkpoint needs to be pushed", "committedLastBlock", currentChildBlock, "startBlock", start)
 	// check if we need to send checkpoint or not
 	if ((currentChildBlock + 1) == start) || (currentChildBlock == 0 && start == 0) {
 		cp.Logger.Info("Checkpoint Valid", "startBlock", start)
 
 		shouldSend = true
 	} else if currentChildBlock > start {
-		cp.Logger.Info("Start block does not match, checkpoint already sent", "commitedLastBlock", currentChildBlock, "startBlock", start)
+		cp.Logger.Info("Start block does not match, checkpoint already sent", "committedLastBlock", currentChildBlock, "startBlock", start)
 	} else if currentChildBlock > end {
-		cp.Logger.Info("Checkpoint already sent", "commitedLastBlock", currentChildBlock, "startBlock", start)
+		cp.Logger.Info("Checkpoint already sent", "committedLastBlock", currentChildBlock, "startBlock", start)
 	} else {
 		cp.Logger.Info("No need to send checkpoint")
 	}

@@ -117,8 +117,8 @@ type spanParams struct {
 
 // It represents the next span seed
 //
-//swagger:response borNextSpanSeedRespose
-type borNextSpanSeedRespose struct {
+//swagger:response borNextSpanSeedResponse
+type borNextSpanSeedResponse struct {
 	//in:body
 	Output spanSeed `json:"output"`
 }
@@ -142,7 +142,7 @@ func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router) {
 // swagger:route GET /bor/next-span-seed bor borNextSpanSeed
 // It returns the seed for the next span
 // responses:
-//   200: borNextSpanSeedRespose
+//   200: borNextSpanSeedResponse
 
 func fetchNextSpanSeedHandlerFn(
 	cliCtx context.CLIContext,
@@ -522,6 +522,14 @@ func paramsHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 		cliCtx = cliCtx.WithHeight(height)
 		rest.PostProcessResponse(w, cliCtx, res)
 	}
+}
+
+// ResponseWithHeight defines a response object type that wraps an original
+// response with a height.
+// TODO:Link it with bor
+type ResponseWithHeight struct {
+	Height string              `json:"height"`
+	Result jsoniter.RawMessage `json:"result"`
 }
 
 func loadSpanOverrides() {

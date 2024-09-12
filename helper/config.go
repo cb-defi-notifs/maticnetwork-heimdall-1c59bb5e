@@ -42,6 +42,7 @@ const (
 
 	MainChain   = "mainnet"
 	MumbaiChain = "mumbai"
+	AmoyChain   = "amoy"
 	LocalChain  = "local"
 
 	// heimdall-config flags
@@ -55,10 +56,12 @@ const (
 	NoACKPollIntervalFlag        = "noack_poll_interval"
 	ClerkPollIntervalFlag        = "clerk_poll_interval"
 	SpanPollIntervalFlag         = "span_poll_interval"
+	MilestonePollIntervalFlag    = "milestone_poll_interval"
 	MainchainGasLimitFlag        = "main_chain_gas_limit"
 	MainchainMaxGasPriceFlag     = "main_chain_max_gas_price"
-	NoACKWaitTimeFlag            = "no_ack_wait_time"
-	ChainFlag                    = "chain"
+
+	NoACKWaitTimeFlag = "no_ack_wait_time"
+	ChainFlag         = "chain"
 
 	// ---
 	// TODO Move these to common client flags
@@ -97,10 +100,14 @@ const (
 	DefaultNoACKPollInterval        = 1010 * time.Second
 	DefaultClerkPollInterval        = 10 * time.Second
 	DefaultSpanPollInterval         = 1 * time.Minute
-	DefaultEnableSH                 = false
-	DefaultSHStateSyncedInterval    = 15 * time.Minute
-	DefaultSHStakeUpdateInterval    = 3 * time.Hour
-	DefaultSHMaxDepthDuration       = time.Hour
+
+	DefaultMilestonePollInterval = 30 * time.Second
+
+	DefaultEnableSH              = false
+	DefaultSHStateSyncedInterval = 15 * time.Minute
+	DefaultSHStakeUpdateInterval = 3 * time.Hour
+
+	DefaultSHMaxDepthDuration = time.Hour
 
 	DefaultMainchainGasLimit = uint64(5000000)
 
@@ -113,9 +120,11 @@ const (
 
 	DefaultTendermintNode = "tcp://localhost:26657"
 
-	DefaultMainnetSeeds = "f4f605d60b8ffaaf15240564e58a81103510631c@159.203.9.164:26656,4fb1bc820088764a564d4f66bba1963d47d82329@44.232.55.71:26656,2eadba4be3ce47ac8db0a3538cb923b57b41c927@35.199.4.13:26656,3b23b20017a6f348d329c102ddc0088f0a10a444@35.221.13.28:26656,25f5f65a09c56e9f1d2d90618aa70cd358aa68da@35.230.116.151:26656"
+	DefaultMainnetSeeds = "1500161dd491b67fb1ac81868952be49e2509c9f@52.78.36.216:26656,dd4a3f1750af5765266231b9d8ac764599921736@3.36.224.80:26656,8ea4f592ad6cc38d7532aff418d1fb97052463af@34.240.245.39:26656,e772e1fb8c3492a9570a377a5eafdb1dc53cd778@54.194.245.5:26656"
 
-	DefaultTestnetSeeds = "4cd60c1d76e44b05f7dfd8bab3f447b119e87042@54.147.31.250:26656,b18bbe1f3d8576f4b73d9b18976e71c65e839149@34.226.134.117:26656"
+	DefaultMumbaiTestnetSeeds = "9df7ae4bf9b996c0e3436ed4cd3050dbc5742a28@43.200.206.40:26656,d9275750bc877b0276c374307f0fd7eae1d71e35@54.216.248.9:26656,1a3258eb2b69b235d4749cf9266a94567d6c0199@52.214.83.78:26656"
+
+	DefaultAmoyTestnetSeeds = "eb57fffe96d74312963ced94a94cbaf8e0d8ec2e@54.217.171.196:26656,080dcdffcc453367684b61d8f3ce032f357b0f73@13.251.184.185:26656"
 
 	secretFilePerm = 0600
 
@@ -126,6 +135,16 @@ const (
 	// New max state sync size after hardfork
 	MaxStateSyncSize = 30000
 
+	//Milestone Length
+	MilestoneLength = uint64(12)
+
+	MilestonePruneNumber = uint64(100)
+
+	MaticChainMilestoneConfirmation = uint64(16)
+
+	//Milestone buffer Length
+	MilestoneBufferLength = MilestoneLength * 5
+	MilestoneBufferTime   = 256 * time.Second
 	// Default Open Collector Endpoint
 	DefaultOpenCollectorEndpoint = "localhost:4317"
 )
@@ -150,6 +169,7 @@ type Configuration struct {
 	EthRPCUrl        string `mapstructure:"eth_rpc_url"`        // RPC endpoint for main chain
 	BorRPCUrl        string `mapstructure:"bor_rpc_url"`        // RPC endpoint for bor chain
 	TendermintRPCUrl string `mapstructure:"tendermint_rpc_url"` // tendemint node url
+	SubGraphUrl      string `mapstructure:"sub_graph_url"`      // sub graph url
 
 	EthRPCTimeout time.Duration `mapstructure:"eth_rpc_timeout"` // timeout for eth rpc
 	BorRPCTimeout time.Duration `mapstructure:"bor_rpc_timeout"` // timeout for bor rpc
@@ -167,6 +187,7 @@ type Configuration struct {
 	NoACKPollInterval        time.Duration `mapstructure:"noack_poll_interval"`      // Poll interval for ack service to send no-ack in case of no checkpoints
 	ClerkPollInterval        time.Duration `mapstructure:"clerk_poll_interval"`
 	SpanPollInterval         time.Duration `mapstructure:"span_poll_interval"`
+	MilestonePollInterval    time.Duration `mapstructure:"milestone_poll_interval"`
 	EnableSH                 bool          `mapstructure:"enable_self_heal"`         // Enable self healing
 	SHStateSyncedInterval    time.Duration `mapstructure:"sh_state_synced_interval"` // Interval to self-heal StateSynced events if missing
 	SHStakeUpdateInterval    time.Duration `mapstructure:"sh_stake_update_interval"` // Interval to self-heal StakeUpdate events if missing
@@ -208,6 +229,12 @@ var newSelectionAlgoHeight int64 = 0
 
 var spanOverrideHeight int64 = 0
 
+var milestoneBorBlockHeight uint64 = 0
+
+var aalborgHeight int64 = 0
+
+var newHexToStringAlgoHeight int64 = 0
+
 type ChainManagerAddressMigration struct {
 	MaticTokenAddress     hmTypes.HeimdallAddress
 	RootChainAddress      hmTypes.HeimdallAddress
@@ -220,6 +247,7 @@ type ChainManagerAddressMigration struct {
 var chainManagerAddressMigrations = map[string]map[int64]ChainManagerAddressMigration{
 	MainChain:   {},
 	MumbaiChain: {},
+	AmoyChain:   {},
 	"default":   {},
 }
 
@@ -285,7 +313,7 @@ func InitHeimdallConfigWith(homeDir string, heimdallConfigFileFromFLag string) {
 		}
 
 		var confFromFlag Configuration
-		// unmarshal configuration from the configuration file submited as a flag
+		// unmarshal configuration from the configuration file submitted as a flag
 		if err = heimdallViperFromFlag.UnmarshalExact(&confFromFlag); err != nil {
 			log.Fatalln("Unable to unmarshall config file submitted via flag", "Error", err)
 		}
@@ -309,31 +337,31 @@ func InitHeimdallConfigWith(homeDir string, heimdallConfigFileFromFLag string) {
 	// perform checks for timeout
 	if conf.EthRPCTimeout == 0 {
 		// fallback to default
-		Logger.Debug("Invalid ETH RPC timeout provided, falling back to default value", "timeout", DefaultEthRPCTimeout)
+		Logger.Debug("Missing ETH RPC timeout or invalid value provided, falling back to default", "timeout", DefaultEthRPCTimeout)
 		conf.EthRPCTimeout = DefaultEthRPCTimeout
 	}
 
 	if conf.BorRPCTimeout == 0 {
 		// fallback to default
-		Logger.Debug("Invalid BOR RPC timeout provided, falling back to default value", "timeout", DefaultBorRPCTimeout)
+		Logger.Debug("Missing BOR RPC timeout or invalid value provided, falling back to default", "timeout", DefaultBorRPCTimeout)
 		conf.BorRPCTimeout = DefaultBorRPCTimeout
 	}
 
 	if conf.SHStateSyncedInterval == 0 {
 		// fallback to default
-		Logger.Debug("Invalid self-healing StateSynced interval provided, falling back to default value", "interval", DefaultSHStateSyncedInterval)
+		Logger.Debug("Missing self-healing StateSynced interval or invalid value provided, falling back to default", "interval", DefaultSHStateSyncedInterval)
 		conf.SHStateSyncedInterval = DefaultSHStateSyncedInterval
 	}
 
 	if conf.SHStakeUpdateInterval == 0 {
 		// fallback to default
-		Logger.Debug("Invalid self-healing StakeUpdate interval provided, falling back to default value", "interval", DefaultSHStakeUpdateInterval)
+		Logger.Debug("Missing self-healing StakeUpdate interval or invalid value provided, falling back to default", "interval", DefaultSHStakeUpdateInterval)
 		conf.SHStakeUpdateInterval = DefaultSHStakeUpdateInterval
 	}
 
 	if conf.SHMaxDepthDuration == 0 {
 		// fallback to default
-		Logger.Debug("Invalid self-healing max depth duration provided, falling back to default value", "duration", DefaultSHMaxDepthDuration)
+		Logger.Debug("Missing self-healing max depth duration or invalid value provided, falling back to default", "duration", DefaultSHMaxDepthDuration)
 		conf.SHMaxDepthDuration = DefaultSHMaxDepthDuration
 	}
 
@@ -371,16 +399,27 @@ func InitHeimdallConfigWith(homeDir string, heimdallConfigFileFromFLag string) {
 	case MainChain:
 		newSelectionAlgoHeight = 375300
 		spanOverrideHeight = 8664000
+		newHexToStringAlgoHeight = 9266260
+		aalborgHeight = 15950759
 	case MumbaiChain:
 		newSelectionAlgoHeight = 282500
 		spanOverrideHeight = 10205000
+		newHexToStringAlgoHeight = 12048023
+		aalborgHeight = 18035772
+	case AmoyChain:
+		newSelectionAlgoHeight = 0
+		spanOverrideHeight = 0
+		newHexToStringAlgoHeight = 0
+		aalborgHeight = 0
 	default:
 		newSelectionAlgoHeight = 0
 		spanOverrideHeight = 0
+		newHexToStringAlgoHeight = 0
+		aalborgHeight = 0
 	}
 }
 
-// GetDefaultHeimdallConfig returns configration with default params
+// GetDefaultHeimdallConfig returns configuration with default params
 func GetDefaultHeimdallConfig() Configuration {
 	return Configuration{
 		EthRPCUrl:        DefaultMainRPCUrl,
@@ -402,6 +441,7 @@ func GetDefaultHeimdallConfig() Configuration {
 		NoACKPollInterval:        DefaultNoACKPollInterval,
 		ClerkPollInterval:        DefaultClerkPollInterval,
 		SpanPollInterval:         DefaultSpanPollInterval,
+		MilestonePollInterval:    DefaultMilestonePollInterval,
 		EnableSH:                 DefaultEnableSH,
 		SHStateSyncedInterval:    DefaultSHStateSyncedInterval,
 		SHStakeUpdateInterval:    DefaultSHStakeUpdateInterval,
@@ -482,7 +522,7 @@ func GetAddress() []byte {
 
 // GetValidChains returns all the valid chains
 func GetValidChains() []string {
-	return []string{"mainnet", "mumbai", "local"}
+	return []string{"mainnet", "mumbai", "amoy", "local"}
 }
 
 // GetNewSelectionAlgoHeight returns newSelectionAlgoHeight
@@ -493,6 +533,21 @@ func GetNewSelectionAlgoHeight() int64 {
 // GetSpanOverrideHeight returns spanOverrideHeight
 func GetSpanOverrideHeight() int64 {
 	return spanOverrideHeight
+}
+
+// GetAalborgHardForkHeight returns AalborgHardForkHeight
+func GetAalborgHardForkHeight() int64 {
+	return aalborgHeight
+}
+
+// GetMilestoneBorBlockHeight returns milestoneBorBlockHeight
+func GetMilestoneBorBlockHeight() uint64 {
+	return milestoneBorBlockHeight
+}
+
+// GetNewHexToStringAlgoHeight returns newHexToStringAlgoHeight
+func GetNewHexToStringAlgoHeight() int64 {
+	return newHexToStringAlgoHeight
 }
 
 func GetChainManagerAddressMigration(blockNum int64) (ChainManagerAddressMigration, bool) {
@@ -629,11 +684,22 @@ func DecorateWithHeimdallFlags(cmd *cobra.Command, v *viper.Viper, loggerInstanc
 		loggerInstance.Error(fmt.Sprintf("%v | BindPFlag | %v", caller, SpanPollIntervalFlag), "Error", err)
 	}
 
+	// add MilestonePollIntervalFlag flag
+	cmd.PersistentFlags().String(
+		MilestonePollIntervalFlag,
+		DefaultMilestonePollInterval.String(),
+		"Set milestone interval",
+	)
+
+	if err := v.BindPFlag(MilestonePollIntervalFlag, cmd.PersistentFlags().Lookup(MilestonePollIntervalFlag)); err != nil {
+		loggerInstance.Error(fmt.Sprintf("%v | BindPFlag | %v", caller, MilestonePollIntervalFlag), "Error", err)
+	}
+
 	// add MainchainGasLimitFlag flag
 	cmd.PersistentFlags().Uint64(
 		MainchainGasLimitFlag,
 		0,
-		"Set main chain gas limti",
+		"Set main chain gas limit",
 	)
 
 	if err := v.BindPFlag(MainchainGasLimitFlag, cmd.PersistentFlags().Lookup(MainchainGasLimitFlag)); err != nil {
@@ -644,7 +710,7 @@ func DecorateWithHeimdallFlags(cmd *cobra.Command, v *viper.Viper, loggerInstanc
 	cmd.PersistentFlags().Int64(
 		MainchainMaxGasPriceFlag,
 		0,
-		"Set main chain max gas limti",
+		"Set main chain max gas limit",
 	)
 
 	if err := v.BindPFlag(MainchainMaxGasPriceFlag, cmd.PersistentFlags().Lookup(MainchainMaxGasPriceFlag)); err != nil {
@@ -766,6 +832,15 @@ func (c *Configuration) UpdateWithFlags(v *viper.Viper, loggerInstance logger.Lo
 		}
 	}
 
+	// get milestone poll interval from viper/cobra
+	stringConfgValue = v.GetString(MilestonePollIntervalFlag)
+	if stringConfgValue != "" {
+		if c.MilestonePollInterval, err = time.ParseDuration(stringConfgValue); err != nil {
+			loggerInstance.Error(logErrMsg, "Flag", MilestonePollIntervalFlag, "Error", err)
+			return err
+		}
+	}
+
 	// get time that ack service waits to clear buffer and elect new proposer from viper/cobra
 	stringConfgValue = v.GetString(NoACKWaitTimeFlag)
 	if stringConfgValue != "" {
@@ -850,6 +925,10 @@ func (c *Configuration) Merge(cc *Configuration) {
 		c.SpanPollInterval = cc.SpanPollInterval
 	}
 
+	if cc.MilestonePollInterval != 0 {
+		c.MilestonePollInterval = cc.MilestonePollInterval
+	}
+
 	if cc.NoACKWaitTime != 0 {
 		c.NoACKWaitTime = cc.NoACKWaitTime
 	}
@@ -890,7 +969,9 @@ func UpdateTendermintConfig(tendermintConfig *cfg.Config, v *viper.Viper) {
 		case MainChain:
 			tendermintConfig.P2P.Seeds = DefaultMainnetSeeds
 		case MumbaiChain:
-			tendermintConfig.P2P.Seeds = DefaultTestnetSeeds
+			tendermintConfig.P2P.Seeds = DefaultMumbaiTestnetSeeds
+		case AmoyChain:
+			tendermintConfig.P2P.Seeds = DefaultAmoyTestnetSeeds
 		}
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	jsoniter "github.com/json-iterator/go"
@@ -69,7 +70,7 @@ func (sp *SlashingProcessor) RegisterTasks() {
 
 // processSlashLimitEvent - processes slash limit event
 func (sp *SlashingProcessor) sendTickToHeimdall(eventBytes string, blockHeight int64) error {
-	sp.Logger.Info("Recevied sendTickToHeimdall request", "eventBytes", eventBytes, "blockHeight", blockHeight)
+	sp.Logger.Info("Received sendTickToHeimdall request", "eventBytes", eventBytes, "blockHeight", blockHeight)
 
 	var event sdk.StringEvent
 	if err := jsoniter.ConfigFastest.Unmarshal([]byte(eventBytes), &event); err != nil {
@@ -107,11 +108,17 @@ func (sp *SlashingProcessor) sendTickToHeimdall(eventBytes string, blockHeight i
 	)
 
 	// return broadcast to heimdall
-	if err = sp.txBroadcaster.BroadcastToHeimdall(msg, event); err != nil {
+	txRes, err := sp.txBroadcaster.BroadcastToHeimdall(msg, event)
+	if err != nil {
 		sp.Logger.Error("Error while broadcasting Tick msg to heimdall", "error", err)
 		return err
 	}
 
+	if txRes.Code != uint32(sdk.CodeOK) {
+		sp.Logger.Error("tick tx failed on heimdall", "txHash", txRes.TxHash, "code", txRes.Code)
+		return fmt.Errorf("tick tx failed, tx response code: %v", txRes.Code)
+
+	}
 	return nil
 }
 
@@ -123,7 +130,7 @@ sendTickToRootchain - create and submit tick tx to rootchain to slashing faulty 
 4. create tick tx and submit to rootchain
 */
 func (sp *SlashingProcessor) sendTickToRootchain(eventBytes string, blockHeight int64) (err error) {
-	sp.Logger.Info("Recevied sendTickToRootchain request", "eventBytes", eventBytes, "blockHeight", blockHeight)
+	sp.Logger.Info("Received sendTickToRootchain request", "eventBytes", eventBytes, "blockHeight", blockHeight)
 
 	var event sdk.StringEvent
 	if err = jsoniter.ConfigFastest.Unmarshal([]byte(eventBytes), &event); err != nil {
@@ -230,9 +237,16 @@ func (sp *SlashingProcessor) sendTickAckToHeimdall(eventName string, logBytes st
 		msg := slashingTypes.NewMsgTickAck(helper.GetFromAddress(sp.cliCtx), event.Nonce.Uint64(), event.Amount.Uint64(), hmTypes.BytesToHeimdallHash(vLog.TxHash.Bytes()), uint64(vLog.Index), vLog.BlockNumber)
 
 		// return broadcast to heimdall
-		if err = sp.txBroadcaster.BroadcastToHeimdall(msg, event); err != nil {
+		txRes, err := sp.txBroadcaster.BroadcastToHeimdall(msg, event)
+		if err != nil {
 			sp.Logger.Error("Error while broadcasting tick-ack to heimdall", "error", err)
 			return err
+		}
+
+		if txRes.Code != uint32(sdk.CodeOK) {
+			sp.Logger.Error("tick-ack tx failed on heimdall", "txHash", txRes.TxHash, "code", txRes.Code)
+			return fmt.Errorf("tick-ack tx failed, tx response code: %v", txRes.Code)
+
 		}
 	}
 
@@ -285,9 +299,16 @@ func (sp *SlashingProcessor) sendUnjailToHeimdall(eventName string, logBytes str
 		)
 
 		// return broadcast to heimdall
-		if err := sp.txBroadcaster.BroadcastToHeimdall(msg, event); err != nil {
+		txRes, err := sp.txBroadcaster.BroadcastToHeimdall(msg, event)
+		if err != nil {
 			sp.Logger.Error("Error while broadcasting unjail to heimdall", "error", err)
 			return err
+		}
+
+		if txRes.Code != uint32(sdk.CodeOK) {
+			sp.Logger.Error("unjail tx failed on heimdall", "txHash", txRes.TxHash, "code", txRes.Code)
+			return fmt.Errorf("unjail tx failed, tx response code: %v", txRes.Code)
+
 		}
 	}
 
@@ -296,7 +317,7 @@ func (sp *SlashingProcessor) sendUnjailToHeimdall(eventName string, logBytes str
 
 // createAndSendTickToRootchain prepares the data required for rootchain tick submission
 // and sends a transaction to rootchain
-func (sp *SlashingProcessor) createAndSendTickToRootchain(height int64, txHash []byte, slashInfoList []*hmTypes.ValidatorSlashingInfo, proposerAddr hmTypes.HeimdallAddress) error {
+func (sp *SlashingProcessor) createAndSendTickToRootchain(height int64, txHash []byte, _ []*hmTypes.ValidatorSlashingInfo, _ hmTypes.HeimdallAddress) error {
 	sp.Logger.Info("Preparing tick to be pushed on chain", "height", height, "txHash", hmTypes.BytesToHeimdallHash(txHash))
 
 	// proof

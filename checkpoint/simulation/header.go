@@ -5,15 +5,16 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
+
 	"github.com/maticnetwork/heimdall/staking"
 	stakingSim "github.com/maticnetwork/heimdall/staking/simulation"
-	"github.com/stretchr/testify/require"
 
 	"github.com/maticnetwork/heimdall/types"
 )
 
 // GenRandCheckpoint return headers
-func GenRandCheckpoint(start uint64, headerSize uint64, maxCheckpointLenght uint64) (headerBlock types.Checkpoint, err error) {
+func GenRandCheckpoint(start uint64, headerSize uint64, maxCheckpointLength uint64) (headerBlock types.Checkpoint, err error) {
 	end := start + headerSize
 	borChainID := "1234"
 	rootHash := types.HexToHeimdallHash("123")

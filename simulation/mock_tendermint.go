@@ -81,7 +81,7 @@ func (vals mockValidators) randomProposer(r *rand.Rand) types.HexBytes {
 	return pk.Address().Bytes()
 }
 
-// updateValidators mimicks Tendermint's update logic
+// updateValidators mimics Tendermint's update logic
 // nolint: unparam
 func updateValidators(tb testing.TB, r *rand.Rand, params Params,
 	current map[string]mockValidator, updates []abci.ValidatorUpdate,
@@ -100,6 +100,7 @@ func updateValidators(tb testing.TB, r *rand.Rand, params Params,
 			delete(current, str)
 		} else if mVal, ok := current[str]; ok {
 			// validator already exists
+			// nolint: govet
 			mVal.val = update
 			event("end_block", "validator_updates", "updated")
 

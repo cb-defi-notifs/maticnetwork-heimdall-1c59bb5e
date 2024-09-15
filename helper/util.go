@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"math/bits"
 	"net/http"
@@ -33,6 +33,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	"github.com/tendermint/tendermint/crypto/secp256k1"
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	"github.com/tendermint/tendermint/rpc/client/mock"
 	tmTypes "github.com/tendermint/tendermint/types"
 
 	authTypes "github.com/maticnetwork/heimdall/auth/types"
@@ -304,14 +305,27 @@ func BroadcastMsgsWithCLI(cliCtx context.CLIContext, msgs []sdk.Msg) error {
 }
 
 // BuildAndBroadcastMsgs creates transaction and broadcasts it
-func BuildAndBroadcastMsgs(cliCtx context.CLIContext, txBldr authTypes.TxBuilder, msgs []sdk.Msg) (sdk.TxResponse, error) {
-	txBytes, err := GetSignedTxBytes(cliCtx, txBldr, msgs)
+func BuildAndBroadcastMsgs(cliCtx context.CLIContext,
+	txBldr authTypes.TxBuilder,
+	msgs []sdk.Msg,
+	testOpts ...*TestOpts,
+) (sdk.TxResponse, error) {
+	txBytes, err := GetSignedTxBytes(cliCtx, txBldr, msgs, testOpts...)
 	if err != nil {
 		return sdk.TxResponse{}, err
 	}
 	// just simulate
 	if cliCtx.Simulate {
-		return sdk.TxResponse{TxHash: "0x" + hex.EncodeToString(txBytes)}, nil
+		if len(testOpts) == 0 || testOpts[0].app == nil {
+			return sdk.TxResponse{TxHash: "0x" + hex.EncodeToString(txBytes)}, nil
+		}
+
+		m := mock.ABCIApp{
+			App: testOpts[0].app,
+		}
+
+		res, err := m.BroadcastTxSync(txBytes)
+		return sdk.NewResponseFormatBroadcastTx(res), err
 	}
 	// broadcast to a Tendermint node
 	return BroadcastTxBytes(cliCtx, txBytes, "")
@@ -344,10 +358,18 @@ func BuildAndBroadcastMsgsWithCLI(cliCtx context.CLIContext, txBldr authTypes.Tx
 }
 
 // GetSignedTxBytes returns signed tx bytes
-func GetSignedTxBytes(cliCtx context.CLIContext, txBldr authTypes.TxBuilder, msgs []sdk.Msg) ([]byte, error) {
+func GetSignedTxBytes(cliCtx context.CLIContext,
+	txBldr authTypes.TxBuilder,
+	msgs []sdk.Msg,
+	testOpts ...*TestOpts,
+) ([]byte, error) {
 	// just simulate (useful for testing)
 	if cliCtx.Simulate {
-		return nil, nil
+		if len(testOpts) == 0 || testOpts[0].chainId == "" {
+			return nil, nil
+		}
+		txBldr = txBldr.WithChainID(testOpts[0].chainId)
+		return txBldr.BuildAndSign(GetPrivKey(), msgs)
 	}
 
 	txBldr, err := PrepareTxBuilder(cliCtx, txBldr)
@@ -546,9 +568,9 @@ func SignStdTx(cliCtx context.CLIContext, stdTx authTypes.StdTx, appendSig bool,
 func ReadStdTxFromFile(cdc *amino.Codec, filename string) (stdTx authTypes.StdTx, err error) {
 	var bytes []byte
 	if filename == "-" {
-		bytes, err = ioutil.ReadAll(os.Stdin)
+		bytes, err = io.ReadAll(os.Stdin)
 	} else {
-		bytes, err = ioutil.ReadFile(filename)
+		bytes, err = os.ReadFile(filename)
 	}
 
 	if err != nil {
@@ -674,7 +696,7 @@ func populateAccountFromState(txBldr authTypes.TxBuilder, cliCtx context.CLICont
 	return txBldr.WithAccountNumber(accNum).WithSequence(accSeq), nil
 }
 
-func buildUnsignedStdTxOffline(txBldr authTypes.TxBuilder, cliCtx context.CLIContext, msgs []sdk.Msg) (stdTx authTypes.StdTx, err error) {
+func buildUnsignedStdTxOffline(txBldr authTypes.TxBuilder, _ context.CLIContext, msgs []sdk.Msg) (stdTx authTypes.StdTx, err error) {
 	stdSignMsg, err := txBldr.BuildSignMsg(msgs)
 	if err != nil {
 		return stdTx, err
@@ -791,7 +813,7 @@ func FetchFromAPI(cliCtx cliContext.CLIContext, URL string) (result rest.Respons
 
 	// response
 	if resp.StatusCode == 200 {
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return result, err
 		}

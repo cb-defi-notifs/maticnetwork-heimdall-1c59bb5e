@@ -23,7 +23,7 @@ import (
 	httpClient "github.com/tendermint/tendermint/rpc/client"
 )
 
-// Listener defines a block header listerner for Rootchain, Maticchain, Heimdall
+// Listener defines a block header listener for Rootchain, Maticchain, Heimdall
 type Listener interface {
 	Start() error
 
@@ -223,7 +223,7 @@ func (bl *BaseListener) StartSubscription(ctx context.Context, subscription ethe
 
 			// cancel subscription
 			if bl.cancelSubscription != nil {
-				bl.Logger.Debug("Cancelling the subscription of listner")
+				bl.Logger.Debug("Cancelling the subscription of listener")
 				bl.cancelSubscription()
 			}
 

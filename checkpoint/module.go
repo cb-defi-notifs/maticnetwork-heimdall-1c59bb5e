@@ -11,18 +11,18 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/gorilla/mux"
-	chainmanagerTypes "github.com/maticnetwork/heimdall/chainmanager/types"
-	"github.com/maticnetwork/heimdall/checkpoint/simulation"
-	"github.com/maticnetwork/heimdall/topup"
-	hmTypes "github.com/maticnetwork/heimdall/types"
 	"github.com/spf13/cobra"
 	abci "github.com/tendermint/tendermint/abci/types"
 
+	chainmanagerTypes "github.com/maticnetwork/heimdall/chainmanager/types"
 	checkpointCli "github.com/maticnetwork/heimdall/checkpoint/client/cli"
 	checkpointRest "github.com/maticnetwork/heimdall/checkpoint/client/rest"
+	"github.com/maticnetwork/heimdall/checkpoint/simulation"
 	"github.com/maticnetwork/heimdall/checkpoint/types"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/staking"
+	"github.com/maticnetwork/heimdall/topup"
+	hmTypes "github.com/maticnetwork/heimdall/types"
 	hmModule "github.com/maticnetwork/heimdall/types/module"
 	simTypes "github.com/maticnetwork/heimdall/types/simulation"
 )
@@ -227,10 +227,11 @@ func verifyGenesis(state types.GenesisState, chainManagerState chainmanagerTypes
 	// check header count
 	currentCheckpointNumber, err := contractCaller.CurrentHeaderBlock(rootChainInstance, childBlockInterval)
 	if err != nil {
+		// nolint: nilerr
 		return nil
 	}
 
-	// Dont multiply
+	// Don't multiply
 	if state.AckCount != currentCheckpointNumber {
 		fmt.Println("Checkpoint count doesn't match",
 			"contractCheckpointNumber", currentCheckpointNumber,
@@ -253,7 +254,7 @@ func verifyGenesis(state types.GenesisState, chainManagerState chainmanagerTypes
 
 		if header.StartBlock != start || header.EndBlock != end || !bytes.Equal(header.RootHash.Bytes(), root.Bytes()) {
 			return fmt.Errorf(
-				"Checkpoint block doesnt match: startExpected %v, startReceived %v, endExpected %v, endReceived %v, rootHashExpected %v, rootHashReceived %v",
+				"Checkpoint block doesn't match: startExpected %v, startReceived %v, endExpected %v, endReceived %v, rootHashExpected %v, rootHashReceived %v",
 				header.StartBlock,
 				start,
 				header.EndBlock,

@@ -12,6 +12,7 @@ import (
 
 	authTypes "github.com/maticnetwork/heimdall/auth/types"
 	"github.com/maticnetwork/heimdall/chainmanager"
+	checkpointTypes "github.com/maticnetwork/heimdall/checkpoint/types"
 	"github.com/maticnetwork/heimdall/helper"
 	"github.com/maticnetwork/heimdall/types"
 )
@@ -81,6 +82,12 @@ func NewAnteHandler(
 			// during runTx.
 			newCtx = SetGasMeter(simulate, ctx, 0)
 			return newCtx, sdk.ErrInternal("tx must be StdTx").Result(), true
+		}
+
+		//Check whether the chain has reached the hard fork length to execute milestone msgs
+		if ctx.BlockHeight() < helper.GetAalborgHardForkHeight() && (stdTx.Msg.Type() == checkpointTypes.EventTypeMilestone || stdTx.Msg.Type() == checkpointTypes.EventTypeMilestoneTimeout) {
+			newCtx = SetGasMeter(simulate, ctx, 0)
+			return newCtx, sdk.ErrTxDecode("error decoding transaction").Result(), true
 		}
 
 		// get account params
@@ -167,7 +174,7 @@ func NewAnteHandler(
 		stdSigs := stdTx.GetSignatures()
 
 		// check signature, return account with incremented nonce
-		signBytes := GetSignBytes(newCtx.ChainID(), stdTx, signerAcc, isGenesis)
+		signBytes := GetSignBytes(ctx, newCtx.ChainID(), stdTx, signerAcc, isGenesis)
 
 		signerAcc, res = processSig(newCtx, signerAcc, stdSigs[0], signBytes, simulate, params, sigGasConsumer)
 		if !res.IsOK() {
@@ -313,11 +320,25 @@ func SetGasMeter(simulate bool, ctx sdk.Context, gasLimit uint64) sdk.Context {
 
 // GetSignBytes returns a slice of bytes to sign over for a given transaction
 // and an account.
-func GetSignBytes(chainID string, stdTx authTypes.StdTx, acc authTypes.Account, genesis bool) []byte {
+func GetSignBytes(ctx sdk.Context, chainID string, stdTx authTypes.StdTx, acc authTypes.Account, genesis bool) []byte {
 	var accNum uint64
 	if !genesis {
 		accNum = acc.GetAccountNumber()
 	}
 
-	return authTypes.StdSignBytes(chainID, accNum, acc.GetSequence(), stdTx.Msg, stdTx.Memo)
+	signBytes := authTypes.StdSignBytes(chainID, accNum, acc.GetSequence(), stdTx.Msg, stdTx.Memo)
+
+	if ctx.BlockHeight() > helper.GetNewHexToStringAlgoHeight() {
+		return signBytes
+	}
+
+	const newData = ",\"data\":\"0x\","
+
+	const oldData = ",\"data\":\"0x0\","
+
+	if bytes.Contains(signBytes, []byte(newData)) {
+		signBytes = bytes.Replace(signBytes, []byte(newData), []byte(oldData), 1)
+	}
+
+	return signBytes
 }

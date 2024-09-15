@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	ethcmn "github.com/ethereum/go-ethereum/common"
+
 	"github.com/maticnetwork/heimdall/checkpoint/types"
 	"github.com/maticnetwork/heimdall/helper"
 	stakingTypes "github.com/maticnetwork/heimdall/staking/types"
@@ -187,6 +188,8 @@ func registerQueryRoutes(cliCtx context.CLIContext, r *mux.Router) {
 	r.HandleFunc("/checkpoints/list", checkpointListhandlerFn(cliCtx)).Methods("GET")
 
 	r.HandleFunc("/checkpoints/{number}", checkpointByNumberHandlerFunc(cliCtx)).Methods("GET")
+
+	registerQueryMilestoneRoutes(cliCtx, r)
 }
 
 // swagger:route GET /checkpoints/params checkpoint checkpointParams
@@ -273,7 +276,7 @@ func checkpointCountHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 
 		result, err := jsoniter.ConfigFastest.Marshal(map[string]interface{}{"result": ackCount})
 		if err != nil {
-			RestLogger.Error("Error while marshalling resposne to Json", "error", err)
+			RestLogger.Error("Error while marshalling response to Json", "error", err)
 			hmRest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 
 			return
@@ -392,7 +395,7 @@ func prepareCheckpointHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 
 			result, err = jsoniter.ConfigFastest.Marshal(checkpoint)
 			if err != nil {
-				RestLogger.Error("Error while marshalling resposne to Json", "error", err)
+				RestLogger.Error("Error while marshalling response to Json", "error", err)
 				hmRest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 
 				return
@@ -446,7 +449,7 @@ func noackHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 
 		result, err := jsoniter.ConfigFastest.Marshal(map[string]interface{}{"result": lastAckTime})
 		if err != nil {
-			RestLogger.Error("Error while marshalling resposne to Json", "error", err)
+			RestLogger.Error("Error while marshalling response to Json", "error", err)
 			hmRest.WriteErrorResponse(w, http.StatusNoContent, errors.New("Error while sending last ack time").Error())
 
 			return
@@ -480,7 +483,7 @@ func overviewHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 		}
 
 		//
-		// Ack acount
+		// Ack account
 		//
 
 		var ackCountInt uint64
@@ -562,7 +565,7 @@ func overviewHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
 
 		result, err := jsoniter.ConfigFastest.Marshal(state)
 		if err != nil {
-			RestLogger.Error("Error while marshalling resposne to Json", "error", err)
+			RestLogger.Error("Error while marshalling response to Json", "error", err)
 			hmRest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 
 			return

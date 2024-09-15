@@ -48,12 +48,16 @@ func NewProcessorService(
 	processorService.BaseService = *common.NewBaseService(logger, processorServiceStr, processorService)
 
 	//
-	// Intitialize processors
+	// Initialize processors
 	//
 
 	// initialize checkpoint processor
 	checkpointProcessor := NewCheckpointProcessor(&contractCaller.RootChainABI)
 	checkpointProcessor.BaseProcessor = *NewBaseProcessor(cdc, queueConnector, httpClient, txBroadcaster, "checkpoint", checkpointProcessor)
+
+	// initialize checkpoint processor
+	milestoneProcessor := &MilestoneProcessor{}
+	milestoneProcessor.BaseProcessor = *NewBaseProcessor(cdc, queueConnector, httpClient, txBroadcaster, "milestone", milestoneProcessor)
 
 	// initialize fee processor
 	feeProcessor := NewFeeProcessor(&contractCaller.StakingInfoABI)
@@ -86,6 +90,7 @@ func NewProcessorService(
 	if startAll {
 		processorService.processors = append(processorService.processors,
 			checkpointProcessor,
+			milestoneProcessor,
 			stakingProcessor,
 			clerkProcessor,
 			feeProcessor,
@@ -97,6 +102,8 @@ func NewProcessorService(
 			switch service {
 			case "checkpoint":
 				processorService.processors = append(processorService.processors, checkpointProcessor)
+			case "milestone":
+				processorService.processors = append(processorService.processors, milestoneProcessor)
 			case "staking":
 				processorService.processors = append(processorService.processors, stakingProcessor)
 			case "clerk":
@@ -112,7 +119,7 @@ func NewProcessorService(
 	}
 
 	if len(processorService.processors) == 0 {
-		panic("No processors selected. Use --all or --only <coma-seprated processors>")
+		panic("No processors selected. Use --all or --only <coma-separated processors>")
 	}
 
 	return processorService

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -56,6 +57,7 @@ func (sp *SpanProcessor) startPolling(ctx context.Context, interval time.Duratio
 	for {
 		select {
 		case <-ticker.C:
+			// nolint: contextcheck
 			sp.checkAndPropose()
 		case <-ctx.Done():
 			sp.Logger.Info("Polling stopped")
@@ -122,9 +124,16 @@ func (sp *SpanProcessor) propose(lastSpan *types.Span, nextSpanMsg *types.Span) 
 		}
 
 		// return broadcast to heimdall
-		if err := sp.txBroadcaster.BroadcastToHeimdall(msg, nil); err != nil {
+		txRes, err := sp.txBroadcaster.BroadcastToHeimdall(msg, nil)
+		if err != nil {
 			sp.Logger.Error("Error while broadcasting span to heimdall", "spanId", nextSpanMsg.ID, "startBlock", nextSpanMsg.StartBlock, "endBlock", nextSpanMsg.EndBlock, "error", err)
 			return
+		}
+
+		if txRes.Code != uint32(sdk.CodeOK) {
+			sp.Logger.Error("span tx failed on heimdall", "txHash", txRes.TxHash, "code", txRes.Code)
+			return
+
 		}
 	}
 }

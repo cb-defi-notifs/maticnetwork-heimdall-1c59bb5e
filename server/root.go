@@ -13,7 +13,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/rpc"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/go-kit/kit/log"
+	"github.com/cosmos/cosmos-sdk/types/rest"
+	"github.com/go-kit/log"
 	"github.com/gorilla/mux"
 	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cobra"
@@ -26,6 +27,7 @@ import (
 	"github.com/maticnetwork/heimdall/app"
 	tx "github.com/maticnetwork/heimdall/client/tx"
 	"github.com/maticnetwork/heimdall/helper"
+	hmRest "github.com/maticnetwork/heimdall/types/rest"
 
 	// unnamed import of statik for swagger UI support
 	"github.com/maticnetwork/heimdall/server/gRPC"
@@ -67,7 +69,7 @@ func StartRestServer(mainCtx ctx.Context, cdc *codec.Codec, registerRoutesFn fun
 	// and returns with the details we use to proxy orders to that socket
 	listener, err := rpcserver.Listen(listenAddr, cfg)
 	if err != nil {
-		logger.Error("RPC could not listen: %v", err)
+		logger.Error("RPC could not listen: %v ", err)
 		return err
 	}
 	// no err? -> signal here that server is open for business
@@ -210,6 +212,7 @@ func startRPCServer(shutdownCtx ctx.Context, listener net.Listener, handler http
 		ctx, cancel := ctx.WithTimeout(ctx.Background(), shutdownTimeout)
 		defer cancel()
 
+		// nolint: contextcheck
 		return s.Shutdown(ctx)
 	})
 
@@ -263,6 +266,9 @@ func RegisterRoutes(ctx client.CLIContext, mux *mux.Router) {
 	rpc.RegisterRPCRoutes(ctx, mux)
 	tx.RegisterRoutes(ctx, mux)
 
+	// Register the status endpoint here (as it's generic)
+	mux.HandleFunc("/status", statusHandlerFn(ctx)).Methods("GET")
+
 	// auth.RegisterRoutes(rs.CliCtx, rs.Mux)
 	// bank.RegisterRoutes(rs.CliCtx, rs.Mux)
 
@@ -283,4 +289,16 @@ func registerSwaggerUI(mux *mux.Router) {
 
 	staticServer := http.FileServer(statikFS)
 	mux.PathPrefix("/swagger-ui/").Handler(http.StripPrefix("/swagger-ui/", staticServer))
+}
+
+func statusHandlerFn(cliCtx context.CLIContext) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		status, err := cliCtx.Client.Status()
+		if err != nil {
+			hmRest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		rest.PostProcessResponse(w, cliCtx, status.SyncInfo)
+	}
 }
